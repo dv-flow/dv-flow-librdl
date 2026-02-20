@@ -1,0 +1,327 @@
+# yaml-language-server: $schema=https://dv-flow.github.io/flow.dv.schema.json
+#****************************************************************************
+#* flow.yaml
+#*
+#* Copyright 2023-2025 Matthew Ballance and Contributors
+#*
+#* Licensed under the Apache License, Version 2.0 (the "License"); you may
+#* not use this file except in compliance with the License.
+#* You may obtain a copy of the License at:
+#*
+#*   http://www.apache.org/licenses/LICENSE-2.0
+#*
+#* Unless required by applicable law or agreed to in writing, software
+#* distributed under the License is distributed on an "AS IS" BASIS,
+#* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#* See the License for the specific language governing permissions and
+#* limitations under the License.
+#*
+#****************************************************************************
+
+package:
+  name: rdl
+  desc: PeakRDL integration — generate register model outputs from SystemRDL sources
+
+  types:
+  - name: AgentSkill
+    uses: std.AgentSkill
+    desc: "Generate register model outputs (HTML, SV, UVM, C header, IP-XACT) from SystemRDL sources using PeakRDL"
+    with:
+      name:
+        type: str
+        value: "rdl-peakrdl"
+      files:
+        type: list
+        value:
+          - "share/SKILL.md"
+
+  tasks:
+
+  - export: Html
+    desc: Generate HTML documentation for a SystemRDL register model
+    doc: |
+      Runs `peakrdl html` to produce interactive HTML documentation pages
+      for the register model.  The output directory can be served directly
+      as a static website.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a `rdlHtmlDoc`
+      fileset whose `basedir` points to the generated HTML directory.
+
+      Example:
+      ```yaml
+      - name: html_docs
+        uses: rdl.Html
+        needs: [rdl_src]
+        with:
+          top: my_regs
+          title: "My Chip Register Map"
+      ```
+    pytask: dv_flow.librdl.peakrdl_html.Html
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories searched for `include directives
+      defines:
+        type: list
+        doc: Preprocessor macro definitions (MACRO or MACRO=VALUE)
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl
+      title:
+        type: str
+        value: ""
+        doc: Override the HTML page title
+      show_signals:
+        type: bool
+        value: false
+        doc: Include signal components in the generated documentation
+      reverse_fields:
+        type: bool
+        value: false
+        doc: Display register fields in LSB-to-MSB order
+
+  - export: Regblock
+    desc: Generate a synthesisable SystemVerilog CSR block from a SystemRDL register model
+    doc: |
+      Runs `peakrdl regblock` to produce a SystemVerilog module and package
+      that implement a control/status register (CSR) block with a configurable
+      CPU interface.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a
+      `systemVerilogSource` fileset so the output can be fed directly into
+      HDL simulation or synthesis tasks.
+
+      Example:
+      ```yaml
+      - name: regblock
+        uses: rdl.Regblock
+        needs: [rdl_src]
+        with:
+          top: my_regs
+          cpuif: axi4-lite
+
+      - name: sim
+        uses: hdlsim.vlt.SimImage
+        needs: [regblock, tb_src]
+        with:
+          top: [tb_top]
+      ```
+    pytask: dv_flow.librdl.peakrdl_regblock.Regblock
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories
+      defines:
+        type: list
+        doc: Preprocessor macro definitions
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl
+      cpuif:
+        type: str
+        value: "apb3"
+        doc: |
+          CPU interface protocol. One of:
+          passthrough, apb3, apb3-flat, apb4, apb4-flat,
+          axi4-lite, axi4-lite-flat, avalon-mm, avalon-mm-flat, obi, obi-flat
+      module_name:
+        type: str
+        value: ""
+        doc: Override the generated SystemVerilog module name
+      package_name:
+        type: str
+        value: ""
+        doc: Override the generated SystemVerilog package name
+
+  - export: Uvm
+    desc: Generate a UVM register model (uvm_reg_block) from a SystemRDL register model
+    doc: |
+      Runs `peakrdl uvm` to produce a SystemVerilog UVM register model that
+      can be used in UVM-based testbenches.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a
+      `systemVerilogSource` fileset.
+
+      Example:
+      ```yaml
+      - name: uvm_model
+        uses: rdl.Uvm
+        needs: [rdl_src]
+        with:
+          top: my_regs
+          use_factory: true
+      ```
+    pytask: dv_flow.librdl.peakrdl_uvm.Uvm
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories
+      defines:
+        type: list
+        doc: Preprocessor macro definitions
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl
+      use_factory:
+        type: bool
+        value: false
+        doc: Instantiate register model classes via the UVM factory
+
+  - export: CHeader
+    desc: Generate a C header with address and field bit-mask definitions from a SystemRDL register model
+    doc: |
+      Runs `peakrdl c-header` to produce a C header file containing base
+      address constants and bit-field mask/shift definitions for every
+      register in the model.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a `rdlCHeader`
+      fileset.
+
+      Example:
+      ```yaml
+      - name: cheader
+        uses: rdl.CHeader
+        needs: [rdl_src]
+        with:
+          top: my_regs
+      ```
+    pytask: dv_flow.librdl.peakrdl_cheader.CHeader
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories
+      defines:
+        type: list
+        doc: Preprocessor macro definitions
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl
+      std:
+        type: str
+        value: "gnu99"
+        doc: C standard to target (gnu23, gnu17, gnu11, gnu99, gnu90, gnu89, latest)
+      type_style:
+        type: str
+        value: "lexical"
+        doc: Type name style — 'lexical' reuses equivalent definitions; 'hier' uses hierarchy
+
+  - export: IpXact
+    desc: Export a SystemRDL register model to IP-XACT XML
+    doc: |
+      Runs `peakrdl ip-xact` to export the register model as an IP-XACT
+      component XML file, suitable for import into IP-XACT-aware EDA tools.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a `rdlIpXact`
+      fileset.
+
+      Example:
+      ```yaml
+      - name: ipxact_export
+        uses: rdl.IpXact
+        needs: [rdl_src]
+        with:
+          top: my_regs
+          vendor: mycompany.com
+          library: chip
+          version: "1.0"
+          standard: "2014"
+      ```
+    pytask: dv_flow.librdl.peakrdl_ipxact.IpXact
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories
+      defines:
+        type: list
+        doc: Preprocessor macro definitions
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl
+      vendor:
+        type: str
+        value: ""
+        doc: IP-XACT component vendor field
+      library:
+        type: str
+        value: ""
+        doc: IP-XACT component library field
+      version:
+        type: str
+        value: ""
+        doc: IP-XACT component version field
+      standard:
+        type: str
+        value: "2014"
+        doc: IP-XACT standard revision — '2009' or '2014'
+
+  - export: SystemRdl
+    desc: Export a SystemRDL register model back to normalised SystemRDL
+    doc: |
+      Runs `peakrdl systemrdl` to re-export the elaborated register model
+      as a normalised SystemRDL source file.  Useful for stripping includes,
+      expanding parameters, or converting from IP-XACT to SystemRDL.
+
+      Consumes upstream `systemRDLSource` filesets.  Produces a
+      `systemRDLSource` fileset containing the exported `.rdl` file.
+
+      Example:
+      ```yaml
+      - name: rdl_export
+        uses: rdl.SystemRdl
+        needs: [rdl_src]
+        with:
+          top: my_regs
+      ```
+    pytask: dv_flow.librdl.peakrdl_systemrdl.SystemRdl
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories
+      defines:
+        type: list
+        doc: Preprocessor macro definitions
+      args:
+        type: list
+        doc: Extra arguments passed verbatim to peakrdl

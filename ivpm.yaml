@@ -1,0 +1,13 @@
+
+package:
+  name: dv-flow-librdl
+
+  dep-sets:
+  - name: default-dev
+    deps: 
+    - name: peakrdl
+      src: pypi
+    - name: pytest
+      src: pypi
+    - name: dv-flow-mgr
+      url: https://github.com/dv-flow/dv-flow-mgr.git

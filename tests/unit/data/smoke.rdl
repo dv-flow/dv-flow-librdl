@@ -1,0 +1,25 @@
+// Minimal SystemRDL test fixture: a single addrmap with one register and two fields.
+
+addrmap my_regs {
+    default hw = r;
+    default sw = rw;
+
+    reg status_reg {
+        name = "Status Register";
+        desc = "Reports current status";
+
+        field {} BUSY[1] = 0;
+        field {} ERROR[1] = 0;
+    };
+
+    reg ctrl_reg {
+        name = "Control Register";
+        desc = "Controls device operation";
+
+        field {} ENABLE[1] = 0;
+        field {} RESET[1] = 0;
+    };
+
+    status_reg STATUS @ 0x0;
+    ctrl_reg   CTRL   @ 0x4;
+};
