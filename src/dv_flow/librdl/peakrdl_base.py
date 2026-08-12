@@ -84,8 +84,12 @@ class PeakRdlLogParser:
     Parse peakrdl stderr/stdout output and emit TaskMarkers for errors and warnings.
     """
 
-    _re_error   = re.compile(r'^\s*(error|SystemRDL error)', re.IGNORECASE)
-    _re_warning = re.compile(r'^\s*(warning)', re.IGNORECASE)
+    # peakrdl prefixes a diagnostic with its source location
+    # ("file.rdl:12:4: warning: ..."), so the severity word is not at the start
+    # of the line. Anchoring at the start dropped every located diagnostic --
+    # which is all of the interesting ones.
+    _re_error   = re.compile(r'^\s*(?:\S+:\d+:\d+:\s*)?(error|SystemRDL error)', re.IGNORECASE)
+    _re_warning = re.compile(r'^\s*(?:\S+:\d+:\d+:\s*)?(warning)', re.IGNORECASE)
     _re_loc     = re.compile(r'(\S+):(\d+):(\d+):', re.IGNORECASE)
 
     def __init__(self, notify=None):

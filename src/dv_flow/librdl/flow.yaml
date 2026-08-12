@@ -37,6 +37,87 @@ package:
 
   tasks:
 
+  # The general form. `format` is the peakrdl subcommand, so a third-party
+  # exporter plug-in (fw-hdl, pss, ...) is reachable without a task of its own,
+  # and `options` carries whatever flags that exporter defines. The per-format
+  # tasks below predate this one; they are conveniences with typed parameters
+  # for the built-in exporters, and each is equivalent to an Export with the
+  # matching `format`.
+  - export: Export
+    desc: Run a PeakRDL exporter over a SystemRDL register model
+    doc: |
+      Runs `peakrdl <format>` over the incoming `systemRDLSource` filesets.
+
+      The output filetype, file extension and file-vs-directory shape are known
+      per format (fw-hdl, regblock, uvm, pss, html, c-header, ip-xact,
+      systemrdl); an unlisted format defaults to a single `.sv` file published
+      as `systemVerilogSource`, and `filetype`/`filename` override either way.
+
+      `options` renders as exporter flags: the key is a long flag without the
+      leading dashes (`_` and `-` interchangeable), `true` emits the bare flag,
+      `false` omits it, a list repeats the flag, and anything else emits
+      `--flag <value>`.
+
+      Example:
+      ```yaml
+      - name: reg_model
+        uses: rdl.Export
+        needs: [rdl_src]
+        with:
+          format: fw-hdl
+          top: my_regs
+          filename: my_ip_reg_pkg.sv
+          options:
+            type-style: lexical
+            strict: true
+      ```
+    pytask: dv_flow.librdl.peakrdl_export.Export
+    consumes:
+    - filetype: systemRDLSource
+    - filetype: systemRDLIncDir
+    with:
+      format:
+        type: str
+        value: ""
+        doc: |
+          PeakRDL exporter to run — the peakrdl subcommand name. Built in:
+          regblock, uvm, c-header, ip-xact, systemrdl, html. Plug-ins:
+          fw-hdl, pss, ...
+      top:
+        type: str
+        value: ""
+        doc: Top-level addrmap to elaborate (peakrdl -t)
+      incdirs:
+        type: list
+        doc: Additional include directories searched for `include directives
+      defines:
+        type: list
+        doc: Preprocessor macro definitions (MACRO or MACRO=VALUE)
+      options:
+        type: map
+        doc: Exporter-specific flags, rendered as --key value / bare --key for true
+      args:
+        type: list
+        doc: |
+          Extra arguments passed verbatim to peakrdl, after everything above so
+          they win on conflict
+      filename:
+        type: str
+        value: ""
+        doc: |
+          Name of the generated file (or, for directory-producing formats, of
+          the output directory). Defaults to '<top><format extension>'.
+      filetype:
+        type: str
+        value: ""
+        doc: Filetype of the published fileset. Defaults to the format's own.
+      incdir:
+        type: bool
+        value: false
+        doc: |
+          Publish the output directory as an incdir as well — needed when the
+          format emits an include body rather than a standalone file
+
   - export: Html
     desc: Generate HTML documentation for a SystemRDL register model
     doc: |
